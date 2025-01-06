@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Diagnostics;
 using UserServiceAPI.Data;
 using UserServiceAPI.Models;
 
@@ -22,82 +21,71 @@ namespace UserServiceAPI.Controllers
         [HttpGet]
         public async Task<IActionResult> GetUsers()
         {
-            _logger.LogInformation("Received request to fetch all users.");
+            _logger.LogInformation("Fetching all users.");
 
             try
             {
                 var users = await _context.Users.ToListAsync();
-
-                _logger.LogInformation("Successfully fetched {UserCount} users", users.Count);
-
+                _logger.LogInformation("Fetched {UserCount} users.", users.Count);
                 return Ok(users);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while fetching users.");
-
-                return StatusCode(500, new { Message = "An unexpected error occurred.", Detail = ex.Message });
+                return HandleException("fetching all users", ex);
             }
         }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetUser(int id)
         {
-            _logger.LogInformation("Received request to fetch user with ID: {UserId}", id);
+            _logger.LogInformation("Fetching user with ID: {UserId}", id);
 
             try
             {
-                var user = await _context.Users.FindAsync(id);
+                var user = await FindUserByIdAsync(id);
                 if (user == null)
                 {
-                    _logger.LogWarning("User with ID {UserId} not found.", id);
                     return NotFound(new { Message = $"User with ID {id} not found." });
                 }
-
-                _logger.LogInformation("Successfully fetched user with ID: {UserId}", id);
 
                 return Ok(user);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while fetching user with ID: {UserId}", id);
-
-                return StatusCode(500, new { Message = "An unexpected error occurred.", Detail = ex.Message });
+                return HandleException($"fetching user with ID {id}", ex);
             }
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateUser([FromBody] User user)
         {
-            _logger.LogInformation("Received request to create a new user.");
+            _logger.LogInformation("Creating a new user.");
 
             try
             {
                 await _context.Users.AddAsync(user);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Successfully created user with ID: {UserId}", user.Id);
+                _logger.LogInformation("Created user with ID: {UserId}", user.Id);
 
                 return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while creating a new user.");
-
-                return StatusCode(500, new { Message = "An unexpected error occurred.", Detail = ex.Message });
+                return HandleException("creating a new user", ex);
             }
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] User updatedUser)
         {
-            _logger.LogInformation("Received request to update user with ID: {UserId}", id);
+            _logger.LogInformation("Updating user with ID: {UserId}", id);
 
             try
             {
-                var user = await _context.Users.FindAsync(id);
+                var user = await FindUserByIdAsync(id);
                 if (user == null)
                 {
-                    _logger.LogWarning("User with ID {UserId} not found.", id);
                     return NotFound(new { Message = $"User with ID {id} not found." });
                 }
 
@@ -107,45 +95,53 @@ namespace UserServiceAPI.Controllers
                 _context.Users.Update(user);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Successfully updated user with ID: {UserId}", id);
+                _logger.LogInformation("Updated user with ID: {UserId}", id);
 
                 return Ok(user);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while updating user with ID: {UserId}", id);
-
-                return StatusCode(500, new { Message = "An unexpected error occurred.", Detail = ex.Message });
+                return HandleException($"updating user with ID {id}", ex);
             }
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            _logger.LogInformation("Received request to delete user with ID: {UserId}", id);
+            _logger.LogInformation("Deleting user with ID: {UserId}", id);
 
             try
             {
-                var user = await _context.Users.FindAsync(id);
+                var user = await FindUserByIdAsync(id);
                 if (user == null)
                 {
-                    _logger.LogWarning("User with ID {UserId} not found.", id);
                     return NotFound(new { Message = $"User with ID {id} not found." });
                 }
 
                 _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Successfully deleted user with ID: {UserId}", id);
+                _logger.LogInformation("Deleted user with ID: {UserId}", id);
 
-                return Ok($"Successfully deleted user with ID: {id}");
+                return Ok(new { Message = $"Successfully deleted user with ID: {id}" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while deleting user with ID: {UserId}", id);
-
-                return StatusCode(500, new { Message = "An unexpected error occurred.", Detail = ex.Message });
+                return HandleException($"deleting user with ID {id}", ex);
             }
+        }
+
+        // 私有方法：查找用戶
+        private async Task<User> FindUserByIdAsync(int id)
+        {
+            return await _context.Users.FindAsync(id);
+        }
+
+        // 私有方法：統一處理例外
+        private IActionResult HandleException(string action, Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while {Action}.", action);
+            return StatusCode(500, new { Message = "An unexpected error occurred.", Detail = ex.Message });
         }
     }
 }
